@@ -4,8 +4,8 @@
 
 ---
 
-[https://img.shields.io/badge/build-passing-brightgreen.svg](Build Passing)
-[https://img.shields.io/badge/build-100%25-brightgreen.svg](Coverage 100%)
+[![Build Passing](.svg)](https://img.shields.io/badge/build-passing-brightgreen.svg)
+[![Build Coverage 100%](.svg)](https://img.shields.io/badge/build-100%25-brightgreen.svg)
 
 
 AD is a Javascript implementation of common Active Directory tasks, built to be simple as possible.
@@ -45,6 +45,13 @@ ad.user('agnes').changePassword('d0ntForgetThisTime')\
 	});
 
 ```
+
+### Features
+
+ - Robust `user`, `group` and `ou` manipulation methods
+ - High and low-level search methods
+ - Caching by default
+ - Fancy result filtering including column and value filtering, sorting and pagination
 
 ## Getting Started
 
@@ -90,9 +97,9 @@ And you're off to the races.
 ## API
 
 ```bash
-ad.user().get(opts)
-ad.user().add(opts)
-ad.user(username).get(opts)
+ad.user().get(filter)
+ad.user().add(options)
+ad.user(username).get(filter)
 ad.user(userName).exists()
 ad.user(userName).addToGroup(groupName)
 ad.user(userName).removeFromGroup(groupName)
@@ -108,26 +115,29 @@ ad.user(userName).unlock()
 ad.user(userName).remove()
 ad.user(userName).location()
 
-ad.group().get(opts)
-ad.group().add()
-ad.group(groupName).get(opts)
+ad.group().get(filter)
+ad.group().add(options)
+ad.group(groupName).get(filter)
 ad.group(groupName).exists()
 ad.group(groupName).addUser(userName)
 ad.group(groupName).removeUser(userName)
 ad.group(groupName).remove()
 
-ad.ou().get(opts)
-ad.ou().add(opts)
+ad.ou().get(filter)
+ad.ou().add(options)
 ad.ou(ouName).get()
 ad.ou(ouName).exists()
 ad.ou(ouName).remove()
 
-ad.other().get(opts)
-ad.all().get(opts)
+ad.other().get(filter)
+ad.all().get(filter)
 ad.find(searchString)
+
+ad.cache(boolean)
+ad.cacheTimeout(millis)
 ```
 
-### User
+### User Methods
 
 #### ad.user().get(filter)
 
@@ -168,7 +178,7 @@ await ad.user().add({
 
 #### ad.user(userName).get(filter)
 
-Returns a user object. If no user is matched, returns undefined.
+Returns a user object. If no user is matched, returns `undefined`.
 
 ```js
 await ad.user('jsmith').get();
@@ -201,7 +211,7 @@ await ad.user('jsmith').addToGroup('Sales');
 Removes a user from a security group.
 
 ```js
-await ad.user('jsmith').addToGroup('Sales');
+await ad.user('jsmith').removeFromGroup('Sales');
 // => {success: true}
 
 ```
@@ -336,15 +346,215 @@ await ad.user('jsmith').remove();
 ```
 
 
+### Group Methods
+
+#### ad.group().get(filter)
+
+Returns all group objects.
+
+```js
+await ad.group().get();
+// => [{ ... }, { ... }];
+
+```
+
+#### ad.group().add(options)
+
+Creates a new group. Returns the created group object.
+
+##### Options:
+
+* `name`: String (required)
+* `location`: String
+* `description`: String
+
+```js
+await ad.group().add({
+	name: 'HR'
+	location: '!Builtin',
+	description: 'Human Resources users.'
+});
+// => {sAMAccountName: 'HR' ... }
+
+```
+
+#### ad.group(groupName).get(filter)
+
+Returns a group object. If no group is matched, returns `undefined`.
+
+```js
+await ad.group('HR').get();
+// => {sAMAccountName: 'HR', description: 'Human...' ... }
+
+```
+
+#### ad.group(groupName).exists()
+
+Returns a `Boolean` of whether the group account matched.
+
+```js
+await ad.group('Beastie Boys').exists();
+// => false
+
+```
+
+#### ad.group(groupName).addUser(groupName)
+
+Adds a user to a group.
+
+```js
+await ad.group('HR').addUser('bjones');
+// => {success: true}
+
+```
+
+#### ad.group(groupName).removeUser(groupName)
+
+Removes a user from a group.
+
+```js
+await ad.group('HR').removeUser('bjones');
+// => {success: true}
+
+```
+
+#### ad.group(groupName).remove()
+
+Deletes a group.
+
+```js
+await ad.group('HR').remove();
+// => {success: true}
+
+```
+
+
+### Organizational Unit (OU) Methods
+
+#### ad.ou().get(filter)
+
+Returns all ou objects.
+
+```js
+await ad.ou().get();
+// => [{ ... }, { ... }];
+
+```
+
+#### ad.ou().add(options)
+
+Creates a new Organizational Unit. Returns the created OU object.
+
+##### Options:
+
+* `name`: String (required)
+* `location`: String
+* `description`: String
+
+```js
+await ad.ou().add({
+	name: 'Sales'
+	location: 'Users'
+	description: 'Sales Users.'
+});
+// => {ou: 'Sales' ... }
+
+```
+
+#### ad.ou(ouName).get(filter)
+
+Returns an OU object. If no OU is matched, returns `undefined`.
+
+```js
+await ad.ou('Sales').get();
+// => {ou: 'Sales', description: 'Sales...' ... }
+
+```
+
+#### ad.ou(ouName).exists()
+
+Returns a `Boolean` of whether the OU exists.
+
+```js
+await ad.ou('Sales').exists();
+// => true
+
+```
+
+#### ad.user(userName).remove()
+
+Deletes an Organizational Unit. As a note, if it has any children, this will not work.
+
+```js
+await ad.ou('Sales').remove();
+// => {success: true}
+
+```
+
+
+### Other methods
+
+#### ad.other().get(filter)
+
+Returns all objects that are not users or groups.
+
+```js
+await ad.other().get();
+// => [{ ... }, { ... }];
+
+```
+
+#### ad.all().get(filter)
+
+Returns all objects in the Active Directory instance, grouping by `users`, `groups` and `other`.
+
+```js
+await ad.other().get();
+// => [users: [...], groups: [...], other: [...]];
+
+```
+
+#### ad.find(searchString)
+
+Returns a raw search of the entire Active Directory.
+
+```js
+await ad.search('CN=Da*');
+// => [{...}, {...}];
+
+```
+
+
+### Caching
+
+#### ad.cache(boolean)
+
+Enables or disables caching. Defaults to `true`.
+
+```js
+ad.cache(false);
+```
+
+#### ad.cacheTimeout(millis)
+
+Sets the amount of milliseconds before a cached item expires. Defaults to ten minutes. Chainable to `ad.cache`.
+
+```js
+ad.cache(true).cacheTimeout(60000);
+```
+
+
 ## Why?
 
 Active Directory / LDAP can be hard. Some of us are stuck with it.
 
-Should you really have to know that `cn` stands for `Common Name` (or was is `Canonical`) in order to use it? Or that `sn` is a `surname`? I dislike systems that require detailed knowledge of their dirty laundry to do anything with them.
+Should you really have to know that `cn` stands for `Common Name` (or was it `Canonical`) in order to use it? Or that `sn` is a `surname`*? I dislike systems that require detailed knowledge of their dirty laundry to do anything with them.
 
 So this was a selfish project, really.
 
 Made with <3 by [dthree](https://github.com/dthree).
+
+_*last name_
 
 ## License
 
