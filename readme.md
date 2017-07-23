@@ -5,7 +5,7 @@
 ---
 
 [![Build Passing](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://img.shields.io/badge/build-passing-brightgreen.svg)
-[![Build Coverage 100%](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://img.shields.io/badge/build-100%25-brightgreen.svg)
+[![Build Coverage 100%](https://img.shields.io/badge/build-100%25-brightgreen.svg)](https://img.shields.io/badge/build-100%25-brightgreen.svg)
 
 
 AD is a Javascript implementation of common Active Directory tasks, built to be simple as possible.
