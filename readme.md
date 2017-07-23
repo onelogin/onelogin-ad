@@ -96,7 +96,7 @@ And you're off to the races.
 
 ## API
 
-```bash
+```js
 ad.user().get(filter)
 ad.user().add(options)
 ad.user(username).get(filter)
