@@ -1,0 +1,33 @@
+{
+  "name": "ad",
+  "version": "0.0.2",
+  "description": "Active Directory API for Node",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest --coverage"
+  },
+  "keywords": [
+    "active",
+    "directory",
+    "ldap",
+    "authentication",
+    "api",
+    "ad",
+    "addict",
+    "microsoft",
+    "windows",
+    "easy",
+    "chainable"
+  ],
+  "author": "dthree",
+  "license": "MIT",
+  "dependencies": {
+    "activedirectory": "^0.7.2",
+    "ldapjs": "^1.0.1",
+    "lodash.orderby": "^4.6.0",
+    "node-ssha256": "^0.1.1"
+  },
+  "devDependencies": {
+    "jest": "^20.0.4"
+  }
+}
