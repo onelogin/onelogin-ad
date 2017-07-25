@@ -110,7 +110,7 @@ module.exports = {
 				});
 			} catch(e) {
 				/* istanbul ignore next */
-				return reject({error: true, message: e.message});
+				return reject({message: e.message, type: e.type, stack: e.stack});
 			}
 		});
 	},
@@ -120,11 +120,11 @@ module.exports = {
 			this.ad.getUsersForGroup(groupName, (err, users) => {
 			  if (err) {
 				/* istanbul ignore next */
-			    return reject({error: true, message: err.message});
+			    return reject({message: err.message});
 			  }
 			  if (!users) {
 				/* istanbul ignore next */
-			  	return reject({error: true, message: `Group ${groupName} does not exist.`});
+			  	return reject({message: `Group ${groupName} does not exist.`});
 			  }
 			  return resolve(users);
 			});
@@ -161,11 +161,11 @@ module.exports = {
 			this._search(searchString, {fields: ['dn']}).then(results => {
 				if (results.length < 1) {
 					/* istanbul ignore next */
-					return reject({error: true, message: `Object ${searchString} does not exist.`});
+					return reject({message: `Object ${searchString} does not exist.`});
 				}
 				if (results.length > 1) {
 					/* istanbul ignore next */
-					return reject({error: true, message: `More than 1 Object was returned.`});
+					return reject({message: `More than 1 Object was returned.`});
 				}
 				this._deleteObjectByDN(results[0].dn).then(result => {
 					resolve(result);
@@ -198,13 +198,17 @@ module.exports = {
 				/* istanbul ignore next */
 				return reject(error);
 			}
-			client.modifyDN(oldDN, newDN, (err) => {
-			    if (err) {
-					/* istanbul ignore next */
-			    	return reject({error: true, message: err.message});
-			    }
-			    return resolve({success: true});
-			});	
+			try {
+				client.modifyDN(oldDN, newDN, (err) => {
+				    if (err) {
+						/* istanbul ignore next */
+				    	return reject({message: err.message});
+				    }
+				    return resolve({success: true});
+				});	
+			} catch(e) {
+				return reject({message: e.message});
+			}
 		});
 	}
 

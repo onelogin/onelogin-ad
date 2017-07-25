@@ -228,6 +228,14 @@ test('user(user).move() should move the user.', async () => {
 	}
 });
 
+test('user(user).move() should handle an invalid user.', async () => {
+	try {
+		let result = await ad.user('test52000').move('!Builtin');
+	} catch(err) {
+		expect(err).toBeDefined();
+	}
+});
+
 test('user(user).unlock() should not throw.', async () => {
 	try {
 		let result = await ad.user('test52').unlock();
