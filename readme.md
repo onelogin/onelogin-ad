@@ -52,6 +52,7 @@ ad.user('agnes').changePassword('d0ntForgetThisTime')\
  - High and low-level search methods
  - Caching by default
  - Fancy result filtering including column and value filtering, sorting and pagination
+ - [Companion drop-in REST API](https://github.com/dthree/addict)
 
 ## Getting Started
 
