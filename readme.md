@@ -10,7 +10,7 @@
 
 AD is a Javascript implementation of common Active Directory tasks, built to be simple as possible.
 
-Really simple. jQuery-simple ([it doesn't do addition though](http://4.bp.blogspot.com/-Hk1mt-RKYLc/UOkxShm6NrI/AAAAAAAACqo/LVmqHOfWV7g/s1600/20091116-so-large.gif)).
+Really simple.
 
 You can use `async` / `await`:
 
