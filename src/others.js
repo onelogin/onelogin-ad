@@ -6,14 +6,11 @@
  */
 
 module.exports = {
+  async getAllOthers(opts) {
+    return await this._findByType(opts, ['other']);
+  },
 
-	async getAllOthers(opts) {
-		return await this._findByType(opts, ['other']);
-	},
-
-	async getAll(opts) {
-		return await this._findByType(opts, ['all']);
-	}
-
-}
-
+  async getAll(opts) {
+    return await this._findByType(opts, ['all']);
+  }
+};
