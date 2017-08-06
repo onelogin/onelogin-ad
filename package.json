@@ -1,10 +1,10 @@
 {
   "name": "ad",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Active Directory API for Node",
   "main": "index.js",
   "scripts": {
-    "test": "jest --coverage"
+    "precommit": "lint-staged"
   },
   "keywords": [
     "active",
@@ -32,8 +32,5 @@
     "jest": "^20.0.4",
     "lint-staged": "^4.0.2",
     "prettier": "^1.5.3"
-  },
-  "scripts": {
-    "precommit": "lint-staged"
   }
 }
