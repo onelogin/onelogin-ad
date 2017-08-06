@@ -73,7 +73,7 @@ const AD = require('ad');
 
 // Your AD account should be a member
 // of the Administrators group.
-const ad = new ad({
+const ad = new AD({
 	url: "ldaps://127.0.0.1",
 	user: "dthree@acme.co",
 	pass: "howinsecure"
