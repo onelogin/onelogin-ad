@@ -188,27 +188,34 @@ module.exports = {
           });
       };
 
-      if (opts.commonName !== undefined) {
-        this.setUserCN(currUserName, opts.commonName)
-          .then(res => {
-            go();
-          })
-          .then(data => {
-            let expirationMethod =
-              opts.passwordExpires === false
-                ? 'setUserPasswordNeverExpires'
-                : 'enableUser';
+      this.findUser(currUserName)
+        .then(data => {
+          if (opts.commonName !== undefined) {
+            return this.setUserCN(currUserName, opts.commonName);
+          }
+        })
+        .then(data => {
+          let expirationMethod =
+            opts.passwordExpires === false
+              ? 'setUserPasswordNeverExpires'
+              : 'enableUser';
+          if (opts.passwordExpires !== undefined) {
             return this[expirationMethod](userName);
-          })
-          .then(data => {
-            let enableMethod =
-              opts.enabled === false ? 'disableUser' : 'enableUser';
+          }
+        })
+        .then(data => {
+          let enableMethod =
+            opts.enabled === false ? 'disableUser' : 'enableUser';
+          if (opts.enabled !== undefined) {
             return this[enableMethod](userName);
-          })
-          .catch(err => {
-            return reject(err);
-          });
-      }
+          }
+        })
+        .then(res => {
+          go();
+        })
+        .catch(err => {
+          return reject(err);
+        });
     });
   },
 
