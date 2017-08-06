@@ -41,6 +41,8 @@ module.exports = {
         location
       } = opts;
 
+      let { passwordExpires, enabled } = opts;
+
       if (commonName) {
         let cnParts = String(commonName).split(' ');
         firstName = firstName ? firstName : cnParts[0];
@@ -88,7 +90,15 @@ module.exports = {
           return this.setUserPassword(userName, pass);
         })
         .then(data => {
-          return this.enableUser(userName);
+          let expirationMethod =
+            passwordExpires === false
+              ? 'setUserPasswordNeverExpires'
+              : 'enableUser';
+          return this[expirationMethod](userName);
+        })
+        .then(data => {
+          let enableMethod = enabled === false ? 'disableUser' : 'enableUser';
+          return this[enableMethod](userName);
         })
         .then(data => {
           delete userObject.userPassword;
@@ -111,6 +121,94 @@ module.exports = {
             httpStatus: 503
           });
         });
+    });
+  },
+
+  async updateUser(userName, opts) {
+    return new Promise((resolve, reject) => {
+      const domain = this.config.domain;
+      const map = {
+        firstName: 'givenName',
+        lastName: 'sn',
+        password: 'unicodePwd',
+        commonName: 'cn',
+        email: 'mail',
+        title: 'title',
+        objectClass: 'objectClass',
+        userName: 'sAMAccountName'
+      };
+
+      let later = [];
+      let operations = [];
+      for (const name in opts) {
+        if (map[name] !== undefined) {
+          let key = map[name];
+          let value =
+            name === 'password' ? encodePassword(opts[name]) : opts[name];
+          if (key !== 'cn') {
+            if (key === 'sAMAccountName') {
+              later.push({
+                sAMAccountName: value
+              });
+              later.push({
+                uid: value
+              });
+              later.push({
+                userPrincipalName: `${value}@${domain}`
+              });
+            } else {
+              operations.push({
+                [key]: value
+              });
+            }
+          }
+        }
+      }
+
+      operations = operations.concat(later);
+      let currUserName = userName;
+      const go = () => {
+        if (operations.length < 1) {
+          delete this._cache.users[currUserName];
+          delete this._cache.users[userName];
+          resolve();
+          return;
+        }
+        let next = operations.pop();
+        this.setUserProperty(currUserName, next)
+          .then(res => {
+            if (next.userPrincipalName !== undefined) {
+              currUserName = next.userPrincipalName;
+            }
+            delete this._cache.users[currUserName];
+            go();
+          })
+          .catch(err => {
+            return reject(err);
+          });
+      };
+
+      if (opts.commonName !== undefined) {
+        this.setUserCN(currUserName, opts.commonName)
+          .then(res => {
+            go();
+          })
+          .then(data => {
+            let expirationMethod =
+              opts.passwordExpires === false
+                ? 'setUserPasswordNeverExpires'
+                : 'enableUser';
+            return this[expirationMethod](userName);
+          })
+          .then(data => {
+            let enableMethod =
+              opts.enabled === false ? 'disableUser' : 'enableUser';
+            return this[enableMethod](userName);
+          })
+          .catch(err => {
+            return reject(err);
+          });
+      }
     });
   },
 
@@ -211,6 +309,31 @@ module.exports = {
         .then(resolve)
         .catch(reject);
     });
+  },
+
+  async setUserCN(userName, cn) {
+    return new Promise(async (resolve, reject) => {
+      this.findUser(userName)
+        .then(userObject => {
+          let oldDN = userObject.dn;
+          let parts = String(oldDN).split(',');
+          parts.shift();
+          parts.unshift(`CN=${cn}`);
+          return this._modifyDN(oldDN, parts.join(','));
+        })
+        .then(result => {
+          delete this._cache.users[userName];
+          resolve(result);
+        })
+        .catch(err => {
+          /* istanbul ignore next */
+          reject(err);
+        });
+    });
+  },
+
+  async setUserProperty(userName, obj) {
+    return this._userReplaceOperation(userName, obj);
   },
 
   async setUserPasswordNeverExpires(userName) {

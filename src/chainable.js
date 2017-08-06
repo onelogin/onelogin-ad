@@ -56,6 +56,9 @@ module.exports = {
       get: opts => {
         return this.findUser(userName, opts);
       },
+      update: opts => {
+        return this.updateUser(userName, opts);
+      },
       exists: () => {
         return this.userExists(userName);
       },
