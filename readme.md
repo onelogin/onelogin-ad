@@ -10,7 +10,7 @@
 
 AD is a Javascript implementation of common Active Directory tasks, built to be simple as possible.
 
-Really simple. jQuery-simple ([it doesn't do addition though](http://4.bp.blogspot.com/-Hk1mt-RKYLc/UOkxShm6NrI/AAAAAAAACqo/LVmqHOfWV7g/s1600/20091116-so-large.gif)).
+Really simple.
 
 You can use `async` / `await`:
 
@@ -73,7 +73,7 @@ const AD = require('ad');
 
 // Your AD account should be a member
 // of the Administrators group.
-const ad = new ad({
+const ad = new AD({
 	url: "ldaps://127.0.0.1",
 	user: "dthree@acme.co",
 	pass: "howinsecure"
