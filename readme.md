@@ -120,6 +120,7 @@ ad.group().get(filter)
 ad.group().add(options)
 ad.group(groupName).get(filter)
 ad.group(groupName).exists()
+ad.group(groupName).members()
 ad.group(groupName).addUser(userName)
 ad.group(groupName).removeUser(userName)
 ad.group(groupName).remove()
@@ -396,6 +397,16 @@ Returns a `Boolean` of whether the group account matched.
 ```js
 await ad.group('Beastie Boys').exists();
 // => false
+
+```
+
+#### ad.group(groupName).members()
+
+Returns a `Array` of the group members.
+
+```js
+await ad.group('HR').members();
+// => [{sAMAccountName: 'hrchief', mail: 'hrchief@acme.com', ...} ... ]
 
 ```
 
