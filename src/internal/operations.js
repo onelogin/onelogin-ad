@@ -22,6 +22,7 @@ module.exports = {
       operation = Array.isArray(operation) ? operation : [operation];
       const operations = operation.map(op => new ldap.Change(op));
       client.modify(objectString, operations, (error3, data) => {
+        client.unbind();
         if (error3) {
           /* istanbul ignore next */
           return reject(error3);

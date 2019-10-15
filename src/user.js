@@ -8,7 +8,8 @@ const parseLocation = require('./util/parseLocation');
  *  Public user functions
  *  --------------------------
  *  findUser(userName, opts)
- *  addUser(opts)
+ *  addUser(opts, stopManipulation)
+ *  updateUser(userName, opts, stopManipulation)
  *  userExists(userName)
  *  userIsMemberOf(userName, groupName)
  *  authenticateUser(userName, pass)
@@ -27,40 +28,89 @@ module.exports = {
     return await this._findByType(opts, ['user']);
   },
 
-  async addUser(opts) {
+  async addUser(opts, stopManipulation) {
     return new Promise(async (resolve, reject) => {
+      stopManipulation = typeof stopManipulation === 'undefined' ? false : true;
+      const userAttrs = this.attrs.user.writable;
+      const map = {
+        firstName: 'givenName',
+        lastName: 'sn',
+        password: 'unicodePwd',
+        commonName: 'cn',
+        email: 'mail',
+        objectClass: 'objectClass',
+        userName: 'sAMAccountName',
+        phone: 'telephoneNumber'
+      };
+
+      const ignoreMap = [
+        'password',
+        'unicodepwd',
+        'location', 
+        'passwordexpires', 
+        'enabled'
+      ];
+
+      let userObject = {};
+
+      for (let key in opts) {
+        let lowerCaseKey = key.toLowerCase();
+        if (ignoreMap.indexOf(lowerCaseKey) >= 0) {
+          continue;
+        }
+
+        if (userAttrs.indexOf(lowerCaseKey) >= 0) {
+          userObject[lowerCaseKey] = opts[key];
+        } else {
+          let name = map[key];
+          if (name === undefined) {
+            return reject({ error: true, message: `Invalid adUser attribute '${key}'`, httpStatus: 400 });
+          } else {
+            userObject[name.toLowerCase()] = opts[key];
+          }
+        }
+      }
+      
       let {
-        firstName,
-        lastName,
-        commonName,
-        userName,
-        pass,
-        email,
-        title,
-        phone,
-        location
+        givenname,
+        sn,
+        cn,
+        samaccountname,
+        mail
+      } = userObject;
+
+      let { 
+        password,
+        location,
+        passwordExpires,
+        enabled
       } = opts;
 
-      let { passwordExpires, enabled } = opts;
+      if (opts.unicodePwd || opts.unicodepwd) {
+        password = opts.unicodePwd || opts.unicodepwd;
+      }
 
-      if (commonName) {
-        let cnParts = String(commonName).split(' ');
-        firstName = firstName ? firstName : cnParts[0];
-        if (cnParts.length > 1) {
-          lastName = lastName ? lastName : cnParts[cnParts.length - 1];
-        }
-      } else {
-        if (firstName && lastName) {
-          commonName = `${firstName} ${lastName}`;
+      let
+        userName = samaccountname
+
+      if (!stopManipulation) {
+        if (cn) {
+          let cnParts = String(cn).split(' ');
+          givenname = givenname ? givenname : cnParts[0];
+          if (cnParts.length > 1) {
+            sn = sn ? sn : cnParts[cnParts.length - 1];
+          }
+        } else {
+          if (givenname && sn) {
+            cn = `${givenname} ${sn}`;
+          }
         }
       }
 
-      location = parseLocation(location);
-
       let valid =
-        email && String(email).indexOf('@') === -1
+        mail && String(mail).indexOf('@') === -1
           ? 'Invalid email address.'
-          : !commonName
+          : !cn
             ? 'A commonName is required.'
             : !userName ? 'A userName is required.' : true;
 
@@ -69,36 +119,38 @@ module.exports = {
         return reject({ error: true, message: valid, httpStatus: 400 });
       }
 
-      const userObject = {
-        cn: commonName,
-        givenName: firstName,
-        sn: lastName,
-        mail: email,
-        uid: userName,
-        title: title,
-        telephone: phone,
-        userPrincipalName: `${userName}@${this.config.domain}`,
-        sAMAccountName: userName,
-        objectClass: this.config.defaults.userObjectClass,
-        userPassword: ssha.create(pass)
-      };
+      if (!stopManipulation) {
+        userObject.uid = userName;
+        userObject.cn = cn;
+        userObject.givenname = givenname;
+        userObject.sn = sn;
+        userObject.userprincipalname = `${userName}@${this.config.domain}`;
+      }
 
-      this._addObject(`CN=${commonName}`, location, userObject)
+      userObject.objectclass = this.config.defaults.userObjectClass;
+      userObject.userPassword = ssha.create(password); 
+      location = parseLocation(location);
+
+      this._addObject(`CN=${cn}`, location, userObject)
         .then(res => {
           delete this._cache.users[userName];
           this._cache.all = {};
-          return this.setUserPassword(userName, pass);
+          return this.setUserPassword(userName, password);
         })
         .then(data => {
           let expirationMethod =
             passwordExpires === false
               ? 'setUserPasswordNeverExpires'
               : 'enableUser';
-          return this[expirationMethod](userName);
+          if (passwordExpires !== undefined) {
+            return this[expirationMethod](userName);
+          }
         })
         .then(data => {
           let enableMethod = enabled === false ? 'disableUser' : 'enableUser';
-          return this[enableMethod](userName);
+          if (enabled !== undefined) {
+            return this[enableMethod](userName);
+          }
         })
         .then(data => {
           delete userObject.userPassword;
@@ -124,9 +176,11 @@ module.exports = {
     });
   },
 
-  async updateUser(userName, opts) {
+  async updateUser(userName, opts, stopManipulation) {
     return new Promise((resolve, reject) => {
+      stopManipulation = typeof stopManipulation === 'undefined' ? false : true;
       const domain = this.config.domain;
+      const userAttrs = this.attrs.user.writable;
       const map = {
         firstName: 'givenName',
         lastName: 'sn',
@@ -138,6 +192,20 @@ module.exports = {
         userName: 'sAMAccountName'
       };
 
+      const ignoreMap = [
+        'unicodepwd',
+        'location',
+        'passwordexpires',
+        'enabled',
+        'dn',
+        'cn',
+        'groups',
+        'ismemberof',
+        'whencreated',
+        'pwdlastset',
+        'useraccountcontrol'
+      ];
+
       let later = [];
       let operations = [];
       for (const name in opts) {
@@ -146,7 +214,7 @@ module.exports = {
           let value =
             name === 'password' ? encodePassword(opts[name]) : opts[name];
           if (key !== 'cn') {
-            if (key === 'sAMAccountName') {
+            if (!stopManipulation && key === 'sAMAccountName') {
               later.push({
                 sAMAccountName: value
               });
@@ -160,6 +228,17 @@ module.exports = {
               operations.push({
                 [key]: value
               });
+            }
+          }
+        } else {
+          let lowerCaseKey = name.toLowerCase();
+          if (ignoreMap.indexOf(lowerCaseKey) === -1) {
+            if (userAttrs.indexOf(lowerCaseKey) >= 0) {
+              operations.push({
+                [name]: opts[name]
+              });
+            }else{
+              return reject({ error: true, message: `Invalid adUser attribute '${name}'`, httpStatus: 400 });
             }
           }
         }
@@ -234,6 +313,11 @@ module.exports = {
         includeMembership: ['all'],
         includeDeleted: false
       };
+      
+      if (opts){
+        params.attributes = opts.fields || opts.attributes || {};
+      }
+      
       this.ad.find(params, (err, results) => {
         if (err) {
           /* istanbul ignore next */
@@ -288,9 +372,11 @@ module.exports = {
     const domain = this.config.domain;
     let fullUser = `${userName}@${domain}`;
     return new Promise(async (resolve, reject) => {
+      //console.log('AUTH USER', fullUser, pass);
       this.ad.authenticate(fullUser, pass, (error, authorized) => {
         let code;
         let out = authorized;
+        //console.log('BACK FROM AUTH', error, authorized);
         if (error && error.lde_message) {
           out.detail = error.lde_message;
           out.message = String(error.stack).split(':')[0];

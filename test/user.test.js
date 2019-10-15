@@ -22,7 +22,7 @@ test('user().add() should not throw', async () => {
       commonName: 'Test User 51',
       email: 'test51@foobar.net',
       title: 'Director of Test Section 51',
-      pass: 'SuperWord4567!'
+      password: 'SuperWord4567!'
     })
     .catch(err => {
       expect(err).not.toBeDefined();
@@ -39,7 +39,7 @@ test('user().add() should return a user', async () => {
       commonName: 'Test User 52',
       email: 'test52@foobar.net',
       title: 'Director of Test Section 52',
-      pass: 'SuperWord4567!!!'
+      password: 'SuperWord173!!!'
     })
     .catch(err => {
       expect(err).not.toBeDefined();
@@ -52,7 +52,7 @@ test('user().add({firstName, lastName}) should infer a commonName', async () => 
       userName: 'test53',
       firstName: 'Test',
       lastName: '53',
-      pass: 'SuperWord4567!!!'
+      password: 'SuperWord173!!!'
     });
     const user = await ad.user('test53').get();
     expect(user.cn.toLowerCase()).toBe('test 53');
@@ -167,7 +167,7 @@ test('user(user).removeFromGroup(group) should remove a user', async () => {
 
 test('user(user).authenticate(pass) should test authentication.', async () => {
   try {
-    let trueResult = await ad.user('test52').authenticate('SuperWord4567!!!');
+    let trueResult = await ad.user('test52').authenticate('SuperWord173!!!');
     expect(trueResult).toBe(true);
     let falseResult = await ad.user('test52').authenticate('jetlag');
     expect(falseResult).toBe(false);
@@ -178,8 +178,8 @@ test('user(user).authenticate(pass) should test authentication.', async () => {
 
 test('user(user).password(pass) should change a password.', async () => {
   try {
-    let result = await ad.user('test52').password('iSunMonkey23!');
-    let trueResult = await ad.user('test52').authenticate('iSunMonkey23!');
+    let result = await ad.user('test52').password('iSunMonkey87!');
+    let trueResult = await ad.user('test52').authenticate('iSunMonkey87!');
     expect(trueResult).toBe(true);
   } catch (err) {
     expect(err).toBeUndefined();

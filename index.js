@@ -1,5 +1,6 @@
 const activedirectory = require('activedirectory');
-const configFile = require('./config.json');
+const configFile = require('./config.json'); 
+const adAttrs = require('./src/adAttrs');
 
 const imports = {
   user: require('./src/user'),
@@ -46,6 +47,11 @@ class AD {
     config = Object.assign(configFile, config);
 
     this.config = config;
+    this.attrs = {
+      user: {
+        writable: adAttrs.user.writable.map(s => s.toLowerCase())
+      }
+    }
 
     this._cache = {
       enabled: true,
