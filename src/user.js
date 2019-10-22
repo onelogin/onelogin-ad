@@ -90,8 +90,7 @@ module.exports = {
         password = opts.unicodePwd || opts.unicodepwd;
       }
 
-      let
-        userName = samaccountname
+      let userName = samaccountname;
 
       if (!stopManipulation) {
         if (cn) {
@@ -128,7 +127,7 @@ module.exports = {
       }
 
       userObject.objectclass = this.config.defaults.userObjectClass;
-      userObject.userPassword = ssha.create(password); 
+      userObject.userPassword = ssha.create(password);
       location = parseLocation(location);
 
       this._addObject(`CN=${cn}`, location, userObject)
@@ -206,6 +205,7 @@ module.exports = {
         'useraccountcontrol'
       ];
 
+      let userObject = {};
       let later = [];
       let operations = [];
       for (const name in opts) {
@@ -224,19 +224,26 @@ module.exports = {
               later.push({
                 userPrincipalName: `${value}@${domain}`
               });
+
+              userObject.samaccountname = value;
+              userObject.uid = value;
+              userObject.userprincipalname = value;
             } else {
               operations.push({
                 [key]: value
               });
+              userObject[key.toLowerCase()] = value;
             }
           }
         } else {
           let lowerCaseKey = name.toLowerCase();
           if (ignoreMap.indexOf(lowerCaseKey) === -1) {
             if (userAttrs.indexOf(lowerCaseKey) >= 0) {
+              let value = opts[name];
               operations.push({
-                [name]: opts[name]
+                [name]: value
               });
+              userObject[lowerCaseKey] = value;
             }else{
               return reject({ error: true, message: `Invalid adUser attribute '${name}'`, httpStatus: 400 });
             }
@@ -246,20 +253,22 @@ module.exports = {
 
       operations = operations.concat(later);
       let currUserName = userName;
+
       const go = () => {
         if (operations.length < 1) {
           delete this._cache.users[currUserName];
           delete this._cache.users[userName];
-          resolve();
+          resolve(userObject);
           return;
         }
-        let next = operations.pop();
-        this.setUserProperty(currUserName, next)
+        //let next = operations.pop();
+        this.setUserProperties(currUserName, operations)
           .then(res => {
-            if (next.userPrincipalName !== undefined) {
-              currUserName = next.userPrincipalName;
+            if (userObject.userprincipalname !== undefined) {
+              currUserName = userObject.userprincipalname;
             }
-            delete this._cache.users[currUserName];
+            //delete this._cache.users[currUserName];
+            operations = [];
             go();
           })
           .catch(err => {
@@ -427,6 +436,10 @@ module.exports = {
 
   async setUserProperty(userName, obj) {
     return this._userReplaceOperation(userName, obj);
+  },
+
+  async setUserProperties(userName, obj) {
+    return this._userReplaceOperations(userName, obj);
   },
 
   async setUserPasswordNeverExpires(userName) {

@@ -31,6 +31,26 @@ module.exports = {
       });
     });
   },
+  
+  async _operations(objectString, operations) {
+    return new Promise(async (resolve, reject) => {
+      const [error, client] = await this._getBoundClient();
+      if (error) {
+        /* istanbul ignore next */
+        return reject(error);
+      }
+      operations = Array.isArray(operations) ? operations : [operations];
+      const changes = operations.map(op => new ldap.Change(op));
+      client.modify(objectString, changes, (error3, data) => {
+        client.unbind();
+        if (error3) {
+          /* istanbul ignore next */
+          return reject(error3);
+        }
+        return resolve({ success: true });
+      });
+    });
+  },
 
   async _operationByUser(userName, operation) {
     return new Promise(async (resolve, reject) => {
@@ -43,6 +63,29 @@ module.exports = {
             return reject({ message: `User ${userName} does not exist.` });
           }
           return this._operation(userObject.dn, operation);
+        })
+        .then(data => {
+          delete this._cache.users[userName];
+          resolve({ success: true });
+        })
+        .catch(error => {
+          /* istanbul ignore next */
+          reject(error);
+        });
+    });
+  },
+  
+  async _operationsByUser(userName, operations) {
+    return new Promise(async (resolve, reject) => {
+      const domain = this.config.domain;
+      userName = `${userName}@${domain}`;
+      this.findUser(userName)
+        .then(async userObject => {
+          if (!userObject || !userObject.dn) {
+            /* istanbul ignore next */
+            return reject({ message: `User ${userName} does not exist.` });
+          }
+          return this._operations(userObject.dn, operations);
         })
         .then(data => {
           delete this._cache.users[userName];
@@ -91,5 +134,13 @@ module.exports = {
       operation: 'replace',
       modification
     });
+  },
+
+  async _userReplaceOperations(userName, modifications) {
+    const changes = modifications.map(modification => ({
+      operation: 'replace',
+      modification: modification
+    }));
+    return this._operationsByUser(userName, changes);
   }
 };

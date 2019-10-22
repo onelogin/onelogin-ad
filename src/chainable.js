@@ -47,8 +47,8 @@ module.exports = {
         get: filter => {
           return this.getAllUsers(filter);
         },
-        add: opts => {
-          return this.addUser(opts);
+        add: (opts, stopManipulation) => {
+          return this.addUser(opts, stopManipulation);
         }
       };
     }
@@ -57,8 +57,8 @@ module.exports = {
       get: opts => {
         return this.findUser(userName, opts);
       },
-      update: opts => {
-        return this.updateUser(userName, opts);
+      update: (opts, stopManipulation) => {
+        return this.updateUser(userName, opts, stopManipulation);
       },
       exists: () => {
         return this.userExists(userName);
