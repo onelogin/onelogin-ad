@@ -185,6 +185,7 @@ module.exports = {
         lastName: 'sn',
         password: 'unicodePwd',
         commonName: 'cn',
+        cn: 'cn',
         email: 'mail',
         title: 'title',
         objectClass: 'objectClass',
@@ -234,6 +235,8 @@ module.exports = {
               });
               userObject[key.toLowerCase()] = value;
             }
+          }else{
+            userObject.cn = value;
           }
         } else {
           let lowerCaseKey = name.toLowerCase();
@@ -278,8 +281,8 @@ module.exports = {
 
       this.findUser(currUserName)
         .then(data => {
-          if (opts.commonName !== undefined) {
-            return this.setUserCN(currUserName, opts.commonName);
+          if (userObject.cn !== undefined && userObject.cn.toLowerCase() !== data.cn.toLowerCase()) {
+            return this.setUserCN(currUserName, userObject.cn);
           }
         })
         .then(data => {
