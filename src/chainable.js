@@ -130,6 +130,9 @@ module.exports = {
       addUser: userName => {
         return this.addUserToGroup(userName, groupName);
       },
+      addGroup: subGroupName => {
+        return this.addGroupToGroup(subGroupName, groupName);
+      },
       removeUser: userName => {
         return this.removeUserFromGroup(userName, groupName);
       },

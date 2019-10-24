@@ -98,6 +98,30 @@ module.exports = {
       });
     });
   },
+  
+  async addGroupToGroup(subGroupName, groupName) {
+    return new Promise(async (resolve, reject) => {
+      this.findGroup(subGroupName).then(subGroupObject => {
+        if (Object.keys(subGroupObject).length < 1) {
+          /* istanbul ignore next */
+          return reject({
+            error: true,
+            message: `Group ${subGroupName} does not exist.`
+          });
+        }
+        this._groupAddOperation(groupName, {
+          member: [subGroupObject.dn]
+        })
+          .then(response => {
+            resolve(response);
+          })
+          .catch(err => {
+            /* istanbul ignore next */
+            reject(Object.assign(err, { error: true }));
+          });
+      });
+    });
+  },
 
   async removeUserFromGroup(userName, groupName) {
     return new Promise(async (resolve, reject) => {

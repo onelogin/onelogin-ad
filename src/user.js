@@ -90,7 +90,7 @@ module.exports = {
         password = opts.unicodePwd || opts.unicodepwd;
       }
 
-      let userName = samaccountname;
+      const userName = samaccountname;
 
       if (!stopManipulation) {
         if (cn) {
@@ -131,29 +131,41 @@ module.exports = {
       location = parseLocation(location);
 
       this._addObject(`CN=${cn}`, location, userObject)
-        .then(res => {
+        .then(response => {
           delete this._cache.users[userName];
           this._cache.all = {};
-          return this.setUserPassword(userName, password);
-        })
-        .then(data => {
-          let expirationMethod =
-            passwordExpires === false
-              ? 'setUserPasswordNeverExpires'
-              : 'enableUser';
+          
+          const ENABLED = 512;
+          const DISABLED = 514;
+          const NEVER_EXPIRES = 66048;
+      
+          let operations = [];
+          operations.push({
+            unicodePwd: encodePassword(password)
+          });
+
           if (passwordExpires !== undefined) {
-            return this[expirationMethod](userName);
+            operations.push({
+              userAccountControl: NEVER_EXPIRES
+            });
+          }else if(enabled === false){
+            operations.push({
+              userAccountControl: DISABLED
+            });
+          }else {
+            operations.push({
+              userAccountControl: ENABLED
+            });
           }
-        })
-        .then(data => {
-          let enableMethod = enabled === false ? 'disableUser' : 'enableUser';
-          if (enabled !== undefined) {
-            return this[enableMethod](userName);
-          }
-        })
-        .then(data => {
-          delete userObject.userPassword;
-          return resolve(userObject);
+
+          this.setUserProperties(userName, operations)
+          .then(data => {
+            delete userObject.userPassword;
+            return resolve(userObject);
+          })
+          .catch(err => {
+            return reject(err);
+          });
         })
         .catch(err => {
           /* istanbul ignore next */
