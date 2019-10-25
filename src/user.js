@@ -44,8 +44,6 @@ module.exports = {
       };
 
       const ignoreMap = [
-        'password',
-        'unicodepwd',
         'location', 
         'passwordexpires', 
         'enabled'
@@ -71,30 +69,25 @@ module.exports = {
         }
       }
       
-      let {
+      const {
         givenname,
         sn,
         cn,
         samaccountname,
+        unicodepwd,
         mail
       } = userObject;
-
-      let { 
-        password,
+      const { 
         location,
         passwordExpires,
         enabled
       } = opts;
-
-      if (opts.unicodePwd || opts.unicodepwd) {
-        password = opts.unicodePwd || opts.unicodepwd;
-      }
-
       const userName = samaccountname;
+      const password = unicodepwd;
 
       if (!stopManipulation) {
         if (cn) {
-          let cnParts = String(cn).split(' ');
+          const cnParts = String(cn).split(' ');
           givenname = givenname ? givenname : cnParts[0];
           if (cnParts.length > 1) {
             sn = sn ? sn : cnParts[cnParts.length - 1];
@@ -118,6 +111,22 @@ module.exports = {
         return reject({ error: true, message: valid, httpStatus: 400 });
       }
 
+      let errorMessage = '';
+      if(password !== undefined && password.trim() !== ''){ 
+        userObject.userPassword = ssha.create(password);
+      }else{
+        if(enabled !== undefined){
+          errorMessage = 'Password is required to enable account';
+        }else if (passwordExpires !== undefined){
+          errorMessage = 'Password is required to set password never expires';
+        }
+      }
+
+      if(errorMessage !== ''){
+        /* istanbul ignore next */
+        return reject({ error: true, message: errorMessage, httpStatus: 400 });
+      }
+
       if (!stopManipulation) {
         userObject.uid = userName;
         userObject.cn = cn;
@@ -127,45 +136,49 @@ module.exports = {
       }
 
       userObject.objectclass = this.config.defaults.userObjectClass;
-      userObject.userPassword = ssha.create(password);
-      location = parseLocation(location);
+      const orgUnit = parseLocation(location);
+      delete userObject.unicodepwd;
 
-      this._addObject(`CN=${cn}`, location, userObject)
+      this._addObject(`CN=${cn}`, orgUnit, userObject)
         .then(response => {
+          delete userObject.userPassword;
           delete this._cache.users[userName];
           this._cache.all = {};
-          
-          const ENABLED = 512;
-          const DISABLED = 514;
-          const NEVER_EXPIRES = 66048;
-      
-          let operations = [];
-          operations.push({
-            unicodePwd: encodePassword(password)
-          });
 
-          if (passwordExpires !== undefined) {
-            operations.push({
-              userAccountControl: NEVER_EXPIRES
-            });
-          }else if(enabled === false){
-            operations.push({
-              userAccountControl: DISABLED
-            });
-          }else {
-            operations.push({
-              userAccountControl: ENABLED
-            });
-          }
+          if(password !== undefined && password.trim() !== ''){
+            const ENABLED = 512;
+            const DISABLED = 514;
+            const NEVER_EXPIRES = 66048;
+            let operations = [];
 
-          this.setUserProperties(userName, operations)
-          .then(data => {
-            delete userObject.userPassword;
+            operations.push({
+              unicodePwd: encodePassword(password)
+            });
+
+            if (passwordExpires !== undefined) {
+              operations.push({
+                userAccountControl: NEVER_EXPIRES
+              });
+            }else if(enabled === false){
+              operations.push({
+                userAccountControl: DISABLED
+              });
+            }else {
+              operations.push({
+                userAccountControl: ENABLED
+              });
+            }
+
+            this.setUserProperties(userName, operations)
+            .then(data => {
+              return resolve(userObject);
+            })
+            .catch(err => {
+              return reject(err);
+            });
+          }else{
             return resolve(userObject);
-          })
-          .catch(err => {
-            return reject(err);
-          });
+          }
         })
         .catch(err => {
           /* istanbul ignore next */

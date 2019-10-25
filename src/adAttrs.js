@@ -89,6 +89,7 @@ const adAttrs = {
             'Title',
             'TrustedForDelegation',
             'TrustedToAuthForDelegation',
+            'unicodePwd',
             'UseDESKeyOnly',
             'userAccountControl',
             'userCertificate',
