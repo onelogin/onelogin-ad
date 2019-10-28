@@ -171,6 +171,8 @@ module.exports = {
 
             this.setUserProperties(userName, operations)
             .then(data => {
+              delete this._cache.users[userName];
+              this._cache.all = {};
               return resolve(userObject);
             })
             .catch(err => {
