@@ -7,10 +7,21 @@
 [![Build Passing](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://img.shields.io/badge/build-passing-brightgreen.svg)
 [![Build Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](https://img.shields.io/badge/build-100%25-brightgreen.svg)
 
+AD is a Javascript library cloned from https://github.com/kalebo/ad.
+It implements common Active Directory (AD) tasks built to be as simple as possible. Really simple.
+The original unmodified package is available @ https://www.npmjs.com/package/ad
 
-AD is a Javascript implementation of common Active Directory tasks, built to be simple as possible.
-
-Really simple.
+The original AD package is great but supports only below 6 AD User Options:
+	userName: String (required)
+	pass: String (required)
+	commonName: String (required)
+	firstName: String
+	lastName: String
+	email: String
+	title: String
+	location: String
+	This code is modified to support 
+So, the original AD package is extended to support other AD attributes.
 
 You can use `async` / `await`:
 
@@ -99,7 +110,8 @@ And you're off to the races.
 
 ```js
 ad.user().get(filter)
-ad.user().add(options)
+ad.user().add(options, stopManipulation=false)
+ad.user(username).update(options, stopManipulation=false)
 ad.user(username).get(filter)
 ad.user(userName).exists()
 ad.user(userName).addToGroup(groupName)
@@ -122,6 +134,7 @@ ad.group(groupName).get(filter)
 ad.group(groupName).exists()
 ad.group(groupName).members()
 ad.group(groupName).addUser(userName)
+ad.group(groupName).addUser(subGroupName)
 ad.group(groupName).removeUser(userName)
 ad.group(groupName).remove()
 
@@ -167,6 +180,7 @@ Creates a new user. Returns the created user object.
 * `location`: String
 
 If not specified, the first and last name will be based on the `commonName`.
+But if "stopManipulation=true", the above manipulation is not done.
 
 ```js
 await ad.user().add({
@@ -416,6 +430,16 @@ Adds a user to a group.
 
 ```js
 await ad.group('HR').addUser('bjones');
+// => {success: true}
+
+```
+
+#### ad.group(groupName).addGroup(subGroupName)
+
+Adds a subGroup to a group.
+
+```js
+await ad.group('HR').addGroup('Recruiting');
 // => {success: true}
 
 ```
