@@ -172,7 +172,6 @@ module.exports = {
             this.setUserProperties(userName, operations)
             .then(data => {
               delete this._cache.users[userName];
-              this._cache.all = {};
               return resolve(userObject);
             })
             .catch(err => {
@@ -340,10 +339,16 @@ module.exports = {
   async findUser(userName, opts) {
     userName = String(userName || '');
     return new Promise(async (resolve, reject) => {
-      let cached = this._cache.get('users', userName);
-      if (cached) {
-        return resolve(api.processResults(opts, [cached])[0]);
+      let attributes;
+      if (opts && (opts.fields || opts.attributes)){
+        attributes = opts.fields || opts.attributes;
+      }else{
+        let cached = this._cache.get('users', userName);
+        if (cached) {
+          return resolve(api.processResults(opts, [cached])[0]);
+        }
       }
+
       const domain = this.config.domain;
       userName = userName.indexOf('@') > -1 ? userName.split('@')[0] : userName;
       const filter = `(|(userPrincipalName=${userName}@${domain})(sAMAccountName=${userName}))`;
@@ -353,8 +358,8 @@ module.exports = {
         includeDeleted: false
       };
       
-      if (opts){
-        params.attributes = opts.fields || opts.attributes || {};
+      if (attributes){
+        params.attributes = attributes;
       }
       
       this.ad.find(params, (err, results) => {
