@@ -219,17 +219,15 @@ module.exports = {
       };
 
       const ignoreMap = [
-        'unicodepwd',
-        'location',
-        'passwordexpires',
-        'enabled',
-        'dn',
         'cn',
+        'dn',
+        'enabled',
         'groups',
         'ismemberof',
-        'whencreated',
-        'pwdlastset',
-        'useraccountcontrol'
+        'location',
+        'passwordexpires',
+        'unicodepwd',
+        'whencreated'
       ];
 
       let userObject = {};
