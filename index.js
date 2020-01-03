@@ -46,7 +46,7 @@ class AD {
 
     config = Object.assign(configFile, config);
 
-    this.config = config;
+    this.config = {...config};
     this.attrs = {
       user: {
         writable: adAttrs.user.writable.map(s => s.toLowerCase())
