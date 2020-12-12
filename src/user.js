@@ -376,6 +376,24 @@ module.exports = {
     });
   },
 
+  async findUserByDN(dn, opts) {
+    return new Promise((resolve, reject) => {
+      const domain = this.config.domain;
+      
+      this._searchByDN(dn)
+        .then(response => {
+          return resolve(response);
+        })
+        .catch(err => {
+          return reject({
+            message: `Error searching user: ${err.message}`, 
+            httpStatus: 503
+          });
+        });
+
+    });
+  },
+
   async userExists(userName) {
     return new Promise(async (resolve, reject) => {
       const domain = this.config.domain;
@@ -567,6 +585,19 @@ module.exports = {
             /* istanbul ignore next */
             reject(Object.assign(err, { error: true }));
           });
+      });
+    });
+  },
+
+  async removeUserByDN(dn) {
+    return new Promise(async (resolve, reject) => {
+      this._deleteObjectByDN(dn)
+      .then(resp => {
+        resolve(resp);
+      })
+      .catch(err => {
+        /* istanbul ignore next */
+        reject(Object.assign(err, { error: true }));
       });
     });
   }

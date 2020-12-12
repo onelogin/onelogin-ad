@@ -57,6 +57,9 @@ module.exports = {
       get: opts => {
         return this.findUser(userName, opts);
       },
+      getByDN: opts => {
+        return this.findUserByDN(userName, opts);
+      },
       update: (opts, stopManipulation) => {
         return this.updateUser(userName, opts, stopManipulation);
       },
@@ -101,6 +104,9 @@ module.exports = {
       },
       remove: () => {
         return this.removeUser(userName);
+      },
+      removeByDN: () => {
+        return this.removeUserByDN(userName);
       }
     };
   },

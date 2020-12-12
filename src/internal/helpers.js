@@ -219,5 +219,38 @@ module.exports = {
         return reject({ message: e.message });
       }
     });
+  },
+
+  async _searchByDN(dn) {
+    return new Promise(async (resolve, reject) => {
+      const [error, client] = await this._getBoundClient();
+      if (error) {
+        /* istanbul ignore next */
+        return reject(error);
+      }
+      try {
+        client.search(dn, {}, (err, res) => {
+          client.unbind();
+          if (err) {
+            return reject({ message: err.message });
+          }
+          
+          res.on('searchEntry', entry => {
+            return resolve(entry.object);
+          });
+          res.on('error', error => {
+            return reject({ message: error.message });
+          });
+          res.on('end', error => {
+            if (error) {
+              return reject({ message: error.message });
+            }
+          });
+        });
+      } catch (e) {
+        client.unbind();
+        return reject({ message: e.message });
+      }
+    });
   }
 };
