@@ -4,9 +4,12 @@ const ldap = require('ldapjs');
 /**
  *  Private helper functions
  *  --------------------------
+ *  _hexAttrs
+ *  _hexToBase64(attributes, attr)
  *  _getBoundClient()
  *  _findByType(opts, membership)
  *  _search(filter, config)
+ *  _searchByDN(dn)
  *  _getGroupUsers(groupName)
  *  _addObject(name, location, userObject)
  *  _deleteObjectBySearch(searchString)
@@ -15,6 +18,16 @@ const ldap = require('ldapjs');
  */
 
 module.exports = {
+  _hexAttrs: ['objectGUID', 'mS-DS-ConsistencyGuid'],
+
+  _hexToBase64(attributes, attr) {
+    const result = attributes.find(attribute => attribute.type === attr);
+    if (result && result.buffers.length > 0) {
+      return result.buffers[0].toString('base64');
+    }
+    return null;
+  },
+
   async _getBoundClient() {
     return new Promise(async (resolve, reject) => {
       const client = ldap.createClient({
@@ -109,6 +122,48 @@ module.exports = {
       } catch (e) {
         /* istanbul ignore next */
         return reject({ message: e.message, type: e.type, stack: e.stack });
+      }
+    });
+  },
+
+  async _searchByDN(dn) {
+    return new Promise(async (resolve, reject) => {
+      const [error, client] = await this._getBoundClient();
+      if (error) {
+        /* istanbul ignore next */
+        return reject(error);
+      }
+      try {
+        client.search(dn, {}, (err, res) => {
+          client.unbind();
+          if (err) {
+            return reject({ message: err.message });
+          }
+
+          res.on('searchEntry', entry => {
+            const result = entry.object;
+
+            this._hexAttrs.forEach(attr => {
+              const base64Val = this._hexToBase64(entry.attributes, attr);
+              if (base64Val) {
+                result[attr] = base64Val;
+              }
+            });
+
+            return resolve(result);
+          });
+          res.on('error', error => {
+            return reject({ message: error.message });
+          });
+          res.on('end', error => {
+            if (error) {
+              return reject({ message: error.message });
+            }
+          });
+        });
+      } catch (e) {
+        client.unbind();
+        return reject({ message: e.message });
       }
     });
   },
@@ -213,39 +268,6 @@ module.exports = {
             return reject({ message: err.message });
           }
           return resolve({ success: true });
-        });
-      } catch (e) {
-        client.unbind();
-        return reject({ message: e.message });
-      }
-    });
-  },
-
-  async _searchByDN(dn) {
-    return new Promise(async (resolve, reject) => {
-      const [error, client] = await this._getBoundClient();
-      if (error) {
-        /* istanbul ignore next */
-        return reject(error);
-      }
-      try {
-        client.search(dn, {}, (err, res) => {
-          client.unbind();
-          if (err) {
-            return reject({ message: err.message });
-          }
-          
-          res.on('searchEntry', entry => {
-            return resolve(entry.object);
-          });
-          res.on('error', error => {
-            return reject({ message: error.message });
-          });
-          res.on('end', error => {
-            if (error) {
-              return reject({ message: error.message });
-            }
-          });
         });
       } catch (e) {
         client.unbind();
