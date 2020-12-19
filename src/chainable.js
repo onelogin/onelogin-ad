@@ -5,6 +5,8 @@
  *  ad.user().get(opts);
  *  ad.user().add({!userName, !commonName, !pass});
  *  ad.user(username).get(opts);
+ *  ad.user(dn).getByDN(opts);
+ *  ad.user(objectGuid).getById(opts);
  *  ad.user(userName).exists();
  *  ad.user(userName).addToGroup(groupName);
  *  ad.user(userName).removeFromGroup(groupName);
@@ -18,8 +20,10 @@
  *  ad.user(userName).move(location);
  *  ad.user(userName).unlock();
  *  ad.user(userName).remove();
+ *  ad.user(dn).removeByDN();
+ *  ad.user(objectGuid).removeById();
  *  ad.user(userName).location();
- *  
+ *
  *  ad.group().get(opts);
  *  ad.group().add();
  *  ad.group(groupName).get(opts);
@@ -28,13 +32,13 @@
  *  ad.group(groupName).addUser(userName);
  *  ad.group(groupName).removeUser(userName);
  *  ad.group(groupName).remove();
- *  
+ *
  *  ad.ou().get(opts);
  *  ad.ou().add(opts);
  *  ad.ou(ouName).get();
  *  ad.ou(ouName).exists();
  *  ad.ou(ouName).remove();
- *  
+ *
  *  ad.other().get(opts);
  *  ad.all().get(opts);
  *  ad.find(searchString);
@@ -56,6 +60,12 @@ module.exports = {
     return {
       get: opts => {
         return this.findUser(userName, opts);
+      },
+      getByDN: opts => {
+        return this.findUserByDN(userName, opts);
+      },
+      getById: opts => {
+        return this.findUserById(userName, opts);
       },
       update: (opts, stopManipulation) => {
         return this.updateUser(userName, opts, stopManipulation);
@@ -101,6 +111,12 @@ module.exports = {
       },
       remove: () => {
         return this.removeUser(userName);
+      },
+      removeByDN: () => {
+        return this.removeUserByDN(userName);
+      },
+      removeById: () => {
+        return this.removeUserById(userName);
       }
     };
   },

@@ -3,11 +3,14 @@ const api = require('./util/api');
 const encodePassword = require('./util/encodePassword');
 const wrapAsync = require('./util/wrapAsync');
 const parseLocation = require('./util/parseLocation');
+const ldapjs = require('ldapjs');
 
 /**
  *  Public user functions
  *  --------------------------
  *  findUser(userName, opts)
+ *  findUserByDN(dn, opts)
+ *  findUserById(objectGuid, opts)
  *  addUser(opts, stopManipulation)
  *  updateUser(userName, opts, stopManipulation)
  *  userExists(userName)
@@ -21,6 +24,9 @@ const parseLocation = require('./util/parseLocation');
  *  getUserLocation(userName)
  *  unlockUser(userName)
  *  removeUser(userName)
+ *  removeUserByDN(dn)
+ *  removeUserById(objectGuid)
+ *
  */
 
 module.exports = {
@@ -28,9 +34,9 @@ module.exports = {
     return await this._findByType(opts, ['user']);
   },
 
-  async addUser(opts, stopManipulation) {
+  async addUser(userData, opts = { stopManipulation: false }) {
     return new Promise(async (resolve, reject) => {
-      stopManipulation = typeof stopManipulation === 'undefined' ? false : true;
+      const { stopManipulation } = opts;
       const userAttrs = this.attrs.user.writable;
       const map = {
         firstName: 'givenName',
@@ -43,32 +49,32 @@ module.exports = {
         phone: 'telephoneNumber'
       };
 
-      const ignoreMap = [
-        'location', 
-        'passwordexpires', 
-        'enabled'
-      ];
+      const ignoreMap = ['location', 'passwordexpires', 'enabled'];
 
       let userObject = {};
 
-      for (let key in opts) {
+      for (let key in userData) {
         let lowerCaseKey = key.toLowerCase();
         if (ignoreMap.indexOf(lowerCaseKey) >= 0) {
           continue;
         }
 
         if (userAttrs.indexOf(lowerCaseKey) >= 0) {
-          userObject[lowerCaseKey] = opts[key];
+          userObject[lowerCaseKey] = userData[key];
         } else {
           let name = map[key];
           if (name === undefined) {
-            return reject({ error: true, message: `Invalid adUser attribute '${key}'`, httpStatus: 400 });
+            return reject({
+              error: true,
+              message: `Invalid adUser attribute '${key}'`,
+              httpStatus: 400
+            });
           } else {
-            userObject[name.toLowerCase()] = opts[key];
+            userObject[name.toLowerCase()] = userData[key];
           }
         }
       }
-      
+
       const {
         givenname,
         sn,
@@ -77,11 +83,7 @@ module.exports = {
         unicodepwd,
         mail
       } = userObject;
-      const { 
-        location,
-        passwordExpires,
-        enabled
-      } = opts;
+      const { location, passwordExpires, enabled } = userData;
       const userName = samaccountname;
       const password = unicodepwd;
 
@@ -103,8 +105,10 @@ module.exports = {
         mail && String(mail).indexOf('@') === -1
           ? 'Invalid email address.'
           : !cn
-            ? 'A commonName is required.'
-            : !userName ? 'A userName is required.' : true;
+          ? 'A commonName is required.'
+          : !userName
+          ? 'A userName is required.'
+          : true;
 
       if (valid !== true) {
         /* istanbul ignore next */
@@ -112,17 +116,17 @@ module.exports = {
       }
 
       let errorMessage = '';
-      if(password !== undefined && password.trim() !== ''){ 
+      if (password !== undefined && password.trim() !== '') {
         userObject.userPassword = ssha.create(password);
-      }else{
-        if(enabled !== undefined){
+      } else {
+        if (enabled !== undefined) {
           errorMessage = 'Password is required to enable account';
-        }else if (passwordExpires !== undefined){
+        } else if (passwordExpires !== undefined) {
           errorMessage = 'Password is required to set password never expires';
         }
       }
 
-      if(errorMessage !== ''){
+      if (errorMessage !== '') {
         /* istanbul ignore next */
         return reject({ error: true, message: errorMessage, httpStatus: 400 });
       }
@@ -145,7 +149,7 @@ module.exports = {
           delete this._cache.users[userName];
           this._cache.all = {};
 
-          if(password !== undefined && password.trim() !== ''){
+          if (password !== undefined && password.trim() !== '') {
             const ENABLED = 512;
             const DISABLED = 514;
             const NEVER_EXPIRES = 66048;
@@ -159,26 +163,37 @@ module.exports = {
               operations.push({
                 userAccountControl: NEVER_EXPIRES
               });
-            }else if(enabled === false){
+            } else if (enabled === false) {
               operations.push({
                 userAccountControl: DISABLED
               });
-            }else {
+            } else {
               operations.push({
                 userAccountControl: ENABLED
               });
             }
 
-            this.setUserProperties(userName, operations)
-            .then(data => {
-              delete this._cache.users[userName];
-              return resolve(userObject);
-            })
-            .catch(err => {
-              return reject(err);
-            });
-          }else{
-            return resolve(userObject);
+            this.setUserProperties(userName, operations, opts)
+              .then(adUser => {
+                delete this._cache.users[userName];
+                return resolve(adUser);
+              })
+              .catch(err => {
+                return reject(err);
+              });
+          } else {
+            this.findUser(userName, opts)
+              .then(adUser => {
+                if (!adUser) {
+                  return reject({
+                    message: `User ${userName} does not exist.`
+                  });
+                }
+                return resolve(adUser);
+              })
+              .catch(error => {
+                reject(error);
+              });
           }
         })
         .catch(err => {
@@ -259,7 +274,7 @@ module.exports = {
               });
               userObject[key.toLowerCase()] = value;
             }
-          }else{
+          } else {
             userObject.cn = value;
           }
         } else {
@@ -271,8 +286,12 @@ module.exports = {
                 [name]: value
               });
               userObject[lowerCaseKey] = value;
-            }else{
-              return reject({ error: true, message: `Invalid adUser attribute '${name}'`, httpStatus: 400 });
+            } else {
+              return reject({
+                error: true,
+                message: `Invalid adUser attribute '${name}'`,
+                httpStatus: 400
+              });
             }
           }
         }
@@ -305,7 +324,10 @@ module.exports = {
 
       this.findUser(currUserName)
         .then(data => {
-          if (userObject.cn !== undefined && userObject.cn.toLowerCase() !== data.cn.toLowerCase()) {
+          if (
+            userObject.cn !== undefined &&
+            userObject.cn.toLowerCase() !== data.cn.toLowerCase()
+          ) {
             return this.setUserCN(currUserName, userObject.cn);
           }
         })
@@ -334,14 +356,33 @@ module.exports = {
     });
   },
 
-  async findUser(userName, opts) {
+  cacheUser(adUser, attrs) {
+    const objectGuid = attrs.objectGuid || adUser.objectGUID;
+    const dn = attrs.dn || adUser.dn;
+    const userName = attrs.userName || adUser.sAMAccountName;
+
+    if (objectGuid) {
+      this._cache.set('users', objectGuid, adUser);
+    }
+    if (dn) {
+      this._cache.set('users', dn, adUser);
+    }
+    if (userName) {
+      this._cache.set('users', userName, adUser);
+    }
+  },
+
+  async findUser(userName, opts = {}) {
     userName = String(userName || '');
     return new Promise(async (resolve, reject) => {
       let attributes;
-      if (opts && (opts.fields || opts.attributes)){
-        attributes = opts.fields || opts.attributes;
-      }else{
-        let cached = this._cache.get('users', userName);
+      if (opts && (opts.fields || opts.attributes)) {
+        attributes =
+          opts.fields && opts.attributes
+            ? { ...opts.fields, ...opts.attributes }
+            : opts.fields || opts.attributes;
+      } else {
+        const cached = this._cache.get('users', userName);
         if (cached) {
           return resolve(api.processResults(opts, [cached])[0]);
         }
@@ -349,17 +390,19 @@ module.exports = {
 
       const domain = this.config.domain;
       userName = userName.indexOf('@') > -1 ? userName.split('@')[0] : userName;
-      const filter = `(|(userPrincipalName=${userName}@${domain})(sAMAccountName=${userName}))`;
+      const filter =
+        opts.filter ||
+        `(|(userPrincipalName=${userName}@${domain})(sAMAccountName=${userName})(cn=${userName}))`;
       const params = {
         filter,
         includeMembership: ['all'],
         includeDeleted: false
       };
-      
-      if (attributes){
+
+      if (attributes) {
         params.attributes = attributes;
       }
-      
+
       this.ad.find(params, (err, results) => {
         if (err) {
           /* istanbul ignore next */
@@ -369,7 +412,77 @@ module.exports = {
           this._cache.set('users', userName, {});
           return resolve({});
         }
-        this._cache.set('users', userName, results.users[0]);
+        this.cacheUser(results.users[0], { userName });
+        results.users = api.processResults(opts, results.users);
+        return resolve(results.users[0]);
+      });
+    });
+  },
+
+  async findUserByDN(dn, opts = {}) {
+    return new Promise((resolve, reject) => {
+      const cached = this._cache.get('users', dn);
+      if (cached) {
+        return resolve(api.processResults(opts, [cached])[0]);
+      }
+
+      this._searchByDN(dn, opts)
+        .then(result => {
+          this.cacheUser(result, { dn });
+          return resolve(response);
+        })
+        .catch(err => {
+          return reject({
+            message: `Error searching user: ${err.message}`,
+            httpStatus: 503
+          });
+        });
+    });
+  },
+
+  async findUserById(objectGuid, opts = {}) {
+    if (!objectGuid) {
+      throw new Error(`objectGuid can not be empty.`);
+    }
+
+    return new Promise(async (resolve, reject) => {
+      let cached = this._cache.get('users', objectGuid);
+      if (cached) {
+        return resolve(api.processResults(opts, [cached])[0]);
+      }
+
+      let attributes;
+      if (opts.fields || opts.attributes) {
+        attributes =
+          opts.fields && opts.attributes
+            ? { ...opts.fields, ...opts.attributes }
+            : opts.fields || opts.attributes;
+      }
+
+      const objectGuidBuffer = Buffer.from(objectGuid, 'base64');
+      var query = {
+        filter: new ldapjs.filters.EqualityFilter({
+          attribute: 'objectGUID',
+          value: objectGuidBuffer
+        }),
+        includeMembership: ['all'],
+        includeDeleted: false
+      };
+
+      if (attributes) {
+        query.attributes = attributes;
+      }
+
+      this.ad.find(query, (err, results) => {
+        if (err) {
+          /* istanbul ignore next */
+          return reject(err);
+        }
+        if (!results || !results.users || results.users.length < 1) {
+          this._cache.set('users', objectGuid, {});
+          return resolve({});
+        }
+        this.cacheUser(results.users[0], { objectGuid });
         results.users = api.processResults(opts, results.users);
         return resolve(results.users[0]);
       });
@@ -471,8 +584,8 @@ module.exports = {
     return this._userReplaceOperation(userName, obj);
   },
 
-  async setUserProperties(userName, obj) {
-    return this._userReplaceOperations(userName, obj);
+  async setUserProperties(userName, obj, opts) {
+    return this._userReplaceOperations(userName, obj, opts);
   },
 
   async setUserPasswordNeverExpires(userName) {
@@ -568,6 +681,39 @@ module.exports = {
             reject(Object.assign(err, { error: true }));
           });
       });
+    });
+  },
+
+  async removeUserByDN(dn) {
+    return new Promise(async (resolve, reject) => {
+      this._deleteObjectByDN(dn)
+        .then(resp => {
+          resolve(resp);
+        })
+        .catch(err => {
+          /* istanbul ignore next */
+          reject(Object.assign(err, { error: true }));
+        });
+    });
+  },
+
+  async removeUserById(objectGuid) {
+    return new Promise(async (resolve, reject) => {
+      this.findUserById(objectGuid, { fields: ['dn'] })
+        .then(result => {
+          if (!result || !result.dn) {
+            /* istanbul ignore next */
+            return reject({
+              message: `User with objectGUID: ${objectGuid} does not exist.`
+            });
+          }
+          this._deleteObjectByDN(result.dn)
+            .then(result => {
+              resolve(result);
+            })
+            .catch(reject);
+        })
+        .catch(reject);
     });
   }
 };

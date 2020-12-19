@@ -1,5 +1,5 @@
 const activedirectory = require('activedirectory');
-const configFile = require('./config.json'); 
+const configFile = require('./config.json');
 const adAttrs = require('./src/adAttrs');
 
 const imports = {
@@ -41,17 +41,20 @@ class AD {
     config.domain = String(config.user).split('@')[1];
 
     if (config.baseDN === undefined) {
-      config.baseDN = config.domain.split('.').map(n => `DC=${n}`).join(',');
+      config.baseDN = config.domain
+        .split('.')
+        .map(n => `DC=${n}`)
+        .join(',');
     }
 
     config = Object.assign(configFile, config);
 
-    this.config = {...config};
+    this.config = { ...config };
     this.attrs = {
       user: {
         writable: adAttrs.user.writable.map(s => s.toLowerCase())
       }
-    }
+    };
 
     this._cache = {
       enabled: true,
@@ -83,7 +86,7 @@ class AD {
       }
     };
 
-    this.ad = new activedirectory({
+    const opts = {
       url: config.url,
       baseDN: config.baseDN,
       username: config.user,
@@ -91,7 +94,13 @@ class AD {
       tlsOptions: {
         rejectUnauthorized: false
       }
-    });
+    };
+
+    if (config.customEntryParser) {
+      opts.entryParser = config.customEntryParser;
+    }
+
+    this.ad = new activedirectory(opts);
   }
 
   cache(bool) {
