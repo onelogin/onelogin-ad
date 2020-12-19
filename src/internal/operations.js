@@ -31,7 +31,7 @@ module.exports = {
       });
     });
   },
-  
+
   async _operations(objectString, operations) {
     return new Promise(async (resolve, reject) => {
       const [error, client] = await this._getBoundClient();
@@ -52,47 +52,50 @@ module.exports = {
     });
   },
 
-  async _operationByUser(userName, operation) {
+  async _operationByUser(userName, operation, opts) {
     return new Promise(async (resolve, reject) => {
       const domain = this.config.domain;
       userName = `${userName}@${domain}`;
-      this.findUser(userName)
-        .then(async userObject => {
-          if (!userObject || !userObject.dn) {
-            /* istanbul ignore next */
+      this.findUser(userName, opts)
+        .then(async adUser => {
+          if (!adUser || !adUser.dn) {
             return reject({ message: `User ${userName} does not exist.` });
           }
-          return this._operation(userObject.dn, operation);
-        })
-        .then(data => {
-          delete this._cache.users[userName];
-          resolve({ success: true });
+          this._operation(adUser.dn, operation)
+            .then(data => {
+              delete this._cache.users[userName];
+              resolve({ ...adUser, success: true });
+            })
+            .catch(error => {
+              reject(error);
+            });
         })
         .catch(error => {
-          /* istanbul ignore next */
           reject(error);
         });
     });
   },
-  
-  async _operationsByUser(userName, operations) {
+
+  async _operationsByUser(userName, operations, opts) {
     return new Promise(async (resolve, reject) => {
       const domain = this.config.domain;
       userName = `${userName}@${domain}`;
-      this.findUser(userName)
-        .then(async userObject => {
-          if (!userObject || !userObject.dn) {
+      this.findUser(userName, opts)
+        .then(async adUser => {
+          if (!adUser || !adUser.dn) {
             /* istanbul ignore next */
             return reject({ message: `User ${userName} does not exist.` });
           }
-          return this._operations(userObject.dn, operations);
-        })
-        .then(data => {
-          delete this._cache.users[userName];
-          resolve({ success: true });
+          this._operations(adUser.dn, operations)
+            .then(data => {
+              delete this._cache.users[userName];
+              resolve(adUser);
+            })
+            .catch(error => {
+              reject(error);
+            });
         })
         .catch(error => {
-          /* istanbul ignore next */
           reject(error);
         });
     });
@@ -136,11 +139,11 @@ module.exports = {
     });
   },
 
-  async _userReplaceOperations(userName, modifications) {
+  async _userReplaceOperations(userName, modifications, opts) {
     const changes = modifications.map(modification => ({
       operation: 'replace',
       modification: modification
     }));
-    return this._operationsByUser(userName, changes);
+    return this._operationsByUser(userName, changes, opts);
   }
 };

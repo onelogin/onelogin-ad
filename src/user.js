@@ -34,9 +34,9 @@ module.exports = {
     return await this._findByType(opts, ['user']);
   },
 
-  async addUser(opts, stopManipulation) {
+  async addUser(userData, opts = { stopManipulation: false }) {
     return new Promise(async (resolve, reject) => {
-      stopManipulation = typeof stopManipulation === 'undefined' ? false : true;
+      const { stopManipulation } = opts;
       const userAttrs = this.attrs.user.writable;
       const map = {
         firstName: 'givenName',
@@ -53,14 +53,14 @@ module.exports = {
 
       let userObject = {};
 
-      for (let key in opts) {
+      for (let key in userData) {
         let lowerCaseKey = key.toLowerCase();
         if (ignoreMap.indexOf(lowerCaseKey) >= 0) {
           continue;
         }
 
         if (userAttrs.indexOf(lowerCaseKey) >= 0) {
-          userObject[lowerCaseKey] = opts[key];
+          userObject[lowerCaseKey] = userData[key];
         } else {
           let name = map[key];
           if (name === undefined) {
@@ -70,7 +70,7 @@ module.exports = {
               httpStatus: 400
             });
           } else {
-            userObject[name.toLowerCase()] = opts[key];
+            userObject[name.toLowerCase()] = userData[key];
           }
         }
       }
@@ -83,7 +83,7 @@ module.exports = {
         unicodepwd,
         mail
       } = userObject;
-      const { location, passwordExpires, enabled } = opts;
+      const { location, passwordExpires, enabled } = userData;
       const userName = samaccountname;
       const password = unicodepwd;
 
@@ -173,16 +173,27 @@ module.exports = {
               });
             }
 
-            this.setUserProperties(userName, operations)
-              .then(data => {
+            this.setUserProperties(userName, operations, opts)
+              .then(adUser => {
                 delete this._cache.users[userName];
-                return resolve(userObject);
+                return resolve(adUser);
               })
               .catch(err => {
                 return reject(err);
               });
           } else {
-            return resolve(userObject);
+            this.findUser(userName, opts)
+              .then(adUser => {
+                if (!adUser) {
+                  return reject({
+                    message: `User ${userName} does not exist.`
+                  });
+                }
+                return resolve(adUser);
+              })
+              .catch(error => {
+                reject(error);
+              });
           }
         })
         .catch(err => {
@@ -345,6 +356,22 @@ module.exports = {
     });
   },
 
+  cacheUser(adUser, attrs) {
+    const objectGuid = attrs.objectGuid || adUser.objectGUID;
+    const dn = attrs.dn || adUser.dn;
+    const userName = attrs.userName || adUser.sAMAccountName;
+
+    if (objectGuid) {
+      this._cache.set('users', objectGuid, adUser);
+    }
+    if (dn) {
+      this._cache.set('users', dn, adUser);
+    }
+    if (userName) {
+      this._cache.set('users', userName, adUser);
+    }
+  },
+
   async findUser(userName, opts = {}) {
     userName = String(userName || '');
     return new Promise(async (resolve, reject) => {
@@ -355,7 +382,7 @@ module.exports = {
             ? { ...opts.fields, ...opts.attributes }
             : opts.fields || opts.attributes;
       } else {
-        let cached = this._cache.get('users', userName);
+        const cached = this._cache.get('users', userName);
         if (cached) {
           return resolve(api.processResults(opts, [cached])[0]);
         }
@@ -385,19 +412,23 @@ module.exports = {
           this._cache.set('users', userName, {});
           return resolve({});
         }
-        this._cache.set('users', userName, results.users[0]);
+        this.cacheUser(results.users[0], { userName });
         results.users = api.processResults(opts, results.users);
         return resolve(results.users[0]);
       });
     });
   },
 
-  async findUserByDN(dn, opts) {
+  async findUserByDN(dn, opts = {}) {
     return new Promise((resolve, reject) => {
-      const domain = this.config.domain;
+      const cached = this._cache.get('users', dn);
+      if (cached) {
+        return resolve(api.processResults(opts, [cached])[0]);
+      }
 
-      this._searchByDN(dn)
-        .then(response => {
+      this._searchByDN(dn, opts)
+        .then(result => {
+          this.cacheUser(result, { dn });
           return resolve(response);
         })
         .catch(err => {
@@ -409,23 +440,23 @@ module.exports = {
     });
   },
 
-  async findUserById(objectGuid, opts) {
+  async findUserById(objectGuid, opts = {}) {
     if (!objectGuid) {
       throw new Error(`objectGuid can not be empty.`);
     }
 
     return new Promise(async (resolve, reject) => {
+      let cached = this._cache.get('users', objectGuid);
+      if (cached) {
+        return resolve(api.processResults(opts, [cached])[0]);
+      }
+
       let attributes;
-      if (opts && (opts.fields || opts.attributes)) {
+      if (opts.fields || opts.attributes) {
         attributes =
           opts.fields && opts.attributes
             ? { ...opts.fields, ...opts.attributes }
             : opts.fields || opts.attributes;
-      } else {
-        let cached = this._cache.get('users', objectGuid);
-        if (cached) {
-          return resolve(api.processResults(opts, [cached])[0]);
-        }
       }
 
       const objectGuidBuffer = Buffer.from(objectGuid, 'base64');
@@ -451,7 +482,7 @@ module.exports = {
           this._cache.set('users', objectGuid, {});
           return resolve({});
         }
-        this._cache.set('users', objectGuid, results.users[0]);
+        this.cacheUser(results.users[0], { objectGuid });
         results.users = api.processResults(opts, results.users);
         return resolve(results.users[0]);
       });
@@ -553,8 +584,8 @@ module.exports = {
     return this._userReplaceOperation(userName, obj);
   },
 
-  async setUserProperties(userName, obj) {
-    return this._userReplaceOperations(userName, obj);
+  async setUserProperties(userName, obj, opts) {
+    return this._userReplaceOperations(userName, obj, opts);
   },
 
   async setUserPasswordNeverExpires(userName) {
@@ -683,15 +714,6 @@ module.exports = {
             .catch(reject);
         })
         .catch(reject);
-
-      this._deleteObjectByDN(dn)
-        .then(resp => {
-          resolve(resp);
-        })
-        .catch(err => {
-          /* istanbul ignore next */
-          reject(Object.assign(err, { error: true }));
-        });
     });
   }
 };

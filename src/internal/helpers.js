@@ -126,7 +126,7 @@ module.exports = {
     });
   },
 
-  async _searchByDN(dn) {
+  async _searchByDN(dn, opts = {}) {
     return new Promise(async (resolve, reject) => {
       const [error, client] = await this._getBoundClient();
       if (error) {
@@ -134,12 +134,22 @@ module.exports = {
         return reject(error);
       }
       try {
-        client.search(dn, {}, (err, res) => {
+        const filter = {
+          scope: 'base'
+        };
+
+        if (opts.attributes) {
+          filter.attributes = opts.attributes;
+        }
+
+        client.search(dn, filter, (err, res) => {
           client.unbind();
           if (err) {
             return reject({ message: err.message });
           }
 
+          const results = [];
+          const errors = [];
           res.on('searchEntry', entry => {
             const result = entry.object;
 
@@ -149,15 +159,18 @@ module.exports = {
                 result[attr] = base64Val;
               }
             });
-
-            return resolve(result);
+            results.push(result);
           });
           res.on('error', error => {
-            return reject({ message: error.message });
+            errors.push(error);
           });
-          res.on('end', error => {
-            if (error) {
-              return reject({ message: error.message });
+          res.on('end', () => {
+            if (errors.length > 0) {
+              return reject({ message: errors[0].message });
+            } else if (results.length == 0) {
+              return reject({ message: `No items found for dn ${dn}` });
+            } else {
+              return resolve(results[0]);
             }
           });
         });
