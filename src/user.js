@@ -184,11 +184,6 @@ module.exports = {
           } else {
             this.findUser(userName, opts)
               .then(adUser => {
-                if (!adUser) {
-                  return reject({
-                    message: `User ${userName} does not exist.`
-                  });
-                }
                 return resolve(adUser);
               })
               .catch(error => {
@@ -668,11 +663,11 @@ module.exports = {
 
   async removeUser(userName) {
     return new Promise(async (resolve, reject) => {
-      this.findUser(userName).then(userObject => {
-        if (Object.keys(userObject).length < 1) {
+      this.findUser(userName).then(adUser => {
+        if (!adUser || !adUser.dn) {
           return reject({ error: true, message: 'User does not exist.' });
         }
-        this._deleteObjectByDN(userObject.dn)
+        this._deleteObjectByDN(adUser.dn)
           .then(resp => {
             resolve(resp);
           })
@@ -687,11 +682,10 @@ module.exports = {
   async removeUserByDN(dn) {
     return new Promise(async (resolve, reject) => {
       this._deleteObjectByDN(dn)
-        .then(resp => {
-          resolve(resp);
+        .then(result => {
+          resolve(result);
         })
         .catch(err => {
-          /* istanbul ignore next */
           reject(Object.assign(err, { error: true }));
         });
     });
@@ -700,14 +694,13 @@ module.exports = {
   async removeUserById(objectGuid) {
     return new Promise(async (resolve, reject) => {
       this.findUserById(objectGuid, { fields: ['dn'] })
-        .then(result => {
-          if (!result || !result.dn) {
-            /* istanbul ignore next */
+        .then(adUser => {
+          if (!adUser || !adUser.dn) {
             return reject({
               message: `User with objectGUID: ${objectGuid} does not exist.`
             });
           }
-          this._deleteObjectByDN(result.dn)
+          this._deleteObjectByDN(adUser.dn)
             .then(result => {
               resolve(result);
             })
