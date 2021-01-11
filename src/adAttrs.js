@@ -58,6 +58,7 @@ const adAttrs = {
             'Manager',
             'MNSLogonAccount',
             'MobilePhone',
+            'mS-DS-ConsistencyGuid',
             'nTSecurityDescriptor',
             'ObjectClass',
             'ObjectGUID',
