@@ -38,10 +38,12 @@
  *  ad.ou(ouName).get();
  *  ad.ou(ouName).exists();
  *  ad.ou(ouName).remove();
+ *  ad.ou(ouName).rename(newName);
+ *  ad.ou(ouName).update(ouData);
  *
  *  ad.other().get(opts);
  *  ad.all().get(opts);
- *  ad.find(searchString);
+ *  ad.find(filter, config);
  */
 
 module.exports = {
@@ -179,6 +181,12 @@ module.exports = {
       },
       remove: () => {
         return this.removeOU(ouName);
+      },
+      rename: newName => {
+        return this.renameOU(ouName, newName);
+      },
+      update: ouData => {
+        return this.updateOU(ouData);
       }
     };
   },
@@ -199,7 +207,7 @@ module.exports = {
     };
   },
 
-  find(searchString, opts) {
-    return this._search(searchString, opts);
+  find(filter, config) {
+    return this._search({ filter, config });
   }
 };
