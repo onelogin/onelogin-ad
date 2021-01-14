@@ -8,7 +8,7 @@ const ldap = require('ldapjs');
  *  _hexToBase64(attributes, attr)
  *  _getBoundClient()
  *  _findByType(opts, membership)
- *  _search(filter, config)
+ *  _search({filter, config, opts})
  *  _searchByDN(dn)
  *  _getGroupUsers(groupName)
  *  _addObject(name, location, userObject)
@@ -92,14 +92,19 @@ module.exports = {
     });
   },
 
-  async _search(filter, config) {
+  async _search({ filter, config, opts }) {
     return new Promise(async (resolve, reject) => {
-      const opts = {
+      const searchOpts = {
         filter,
         includeDeleted: false
       };
+
+      if (opts && opts.attributes) {
+        searchOpts.attributes = searchOpts.attributes || opts.attributes;
+      }
+
       try {
-        this.ad.find(opts, (err, results) => {
+        this.ad.find(searchOpts, (err, results) => {
           if (err) {
             /* istanbul ignore next */
             return reject(err);
@@ -223,15 +228,16 @@ module.exports = {
     });
   },
 
-  async _deleteObjectBySearch(searchString) {
+  async _deleteObjectBySearch(filter) {
     // todo
     return new Promise(async (resolve, reject) => {
-      this._search(searchString, { fields: ['dn'] })
+      const config = { fields: ['dn'] };
+      this._search({ filter, config })
         .then(results => {
           if (results.length < 1) {
             /* istanbul ignore next */
             return reject({
-              message: `Object ${searchString} does not exist.`
+              message: `Object ${filter} does not exist.`
             });
           }
           if (results.length > 1) {

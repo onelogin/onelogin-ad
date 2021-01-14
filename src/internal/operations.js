@@ -145,5 +145,22 @@ module.exports = {
       modification: modification
     }));
     return this._operationsByUser(userName, changes, opts);
+  },
+
+  async _replaceOperations(dn, modifications) {
+    return new Promise(async (resolve, reject) => {
+      const changes = modifications.map(modification => ({
+        operation: 'replace',
+        modification: modification
+      }));
+
+      this._operations(dn, changes)
+        .then(data => {
+          resolve({ ...data, success: true });
+        })
+        .catch(error => {
+          reject(error);
+        });
+    });
   }
 };
